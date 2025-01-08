@@ -6,13 +6,13 @@
 }
 
 body {
-    background-image: url(imagens/fundo-madeira.jpg);
+    background-image: url(fundo-madeira.jpg);
     background-size: cover;
     background-attachment: fixed;
 }
 
 .celular {
-    background-image: url(imagens/frame-iphone.png);
+    background-image: url(frame-iphone.png);
     margin: auto;
     position: absolute;
     display: block;
