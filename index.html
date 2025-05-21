@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorador de Concursos TRF - Técnico Judiciário</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices: 
+        - Exam Data (Year, TRF, Banca, Notes): Displayed as interactive cards (HTML/Tailwind/JS) for clear individual item presentation. Goal: Inform, Organize. Interaction: Filtering/Sorting updates the card list.
+        - Filters (TRF, Banca, Year, Search): Implemented with dropdowns and input fields (HTML/JS). Goal: Organize, Compare. Interaction: User selection dynamically filters the exam data.
+        - Summary Chart (e.g., Exams per Banca): Bar chart using Chart.js on Canvas. Goal: Inform, Compare (at a high level). Interaction: Updates based on filtered data. Justification: Provides a quick visual overview of trends in the dataset.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Additional style for better visual appeal if needed, but Tailwind should cover most */
+        .filter-select {
+            min-width: 150px;
+        }
+        .card-content p {
+            margin-bottom: 0.5rem;
+        }
+        .card-content p:last-child {
+            margin-bottom: 0;
+        }
+         /* Custom scrollbar for better aesthetics - Optional */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* slate-300 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* slate-400 */
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-sky-700">Explorador de Concursos TRF</h1>
+            <p class="text-lg text-slate-600 mt-2">Técnico Judiciário - Últimos Anos</p>
+        </header>
+
+        <section id="app-intro" class="mb-8 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-sky-700 mb-3">Bem-vindo!</h2>
+            <p class="text-slate-700 leading-relaxed">
+                Esta ferramenta interativa apresenta informações sobre os concursos para Técnico Judiciário dos Tribunais Regionais Federais (TRFs) realizados nos últimos anos, com base nos dados disponíveis.
+                Navegue pela lista de concursos, utilize os filtros abaixo para refinar sua busca por TRF ou banca organizadora, ordene os resultados por ano e pesquise por termos específicos.
+                Um gráfico dinâmico resume a distribuição das bancas organizadoras com base nos seus filtros.
+            </p>
+        </section>
+
+        <section id="filters-section" class="mb-8 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-sky-700 mb-4">Filtros e Ordenação</h2>
+            <p class="text-slate-600 mb-6">
+                Utilize os controles abaixo para filtrar e organizar a lista de concursos.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label for="trf-filter" class="block text-sm font-medium text-slate-700 mb-1">TRF:</label>
+                    <select id="trf-filter" class="filter-select w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="">Todos os TRFs</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="banca-filter" class="block text-sm font-medium text-slate-700 mb-1">Banca:</label>
+                    <select id="banca-filter" class="filter-select w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="">Todas as Bancas</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sort-order" class="block text-sm font-medium text-slate-700 mb-1">Ordenar por Ano:</label>
+                    <select id="sort-order" class="filter-select w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                        <option value="desc">Mais Recente Primeiro</option>
+                        <option value="asc">Mais Antigo Primeiro</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="search-input" class="block text-sm font-medium text-slate-700 mb-1">Pesquisar:</label>
+                    <input type="text" id="search-input" placeholder="Ex: FCC, 2019, TRF1..." class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
+                </div>
+            </div>
+        </section>
+
+        <section id="exam-list-section" class="mb-8">
+             <h2 class="text-xl font-semibold text-sky-700 mb-4">Lista de Concursos</h2>
+             <p id="results-count" class="text-slate-600 mb-6">Carregando concursos...</p>
+            <div id="exam-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+        </section>
+
+        <section id="chart-section" class="mb-8 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-sky-700 mb-4">Resumo Gráfico: Distribuição por Banca</h2>
+            <p class="text-slate-600 mb-6">
+                O gráfico abaixo mostra a quantidade de concursos organizados por cada banca, de acordo com os filtros aplicados.
+            </p>
+            <div class="chart-container w-full max-w-3xl mx-auto h-[350px] md:h-[450px] max-h-[400px] md:max-h-[500px]">
+                <canvas id="bancaChart"></canvas>
+            </div>
+        </section>
+
+        <footer class="mt-12 text-center text-sm text-slate-500">
+            <p>&copy; <span id="currentYear"></span> Explorador de Concursos TRF. Todos os direitos reservados (simulados).</p>
+            <p>Desenvolvido como uma ferramenta interativa de visualização de dados.</p>
+        </footer>
+    </div>
+
+    <script>
+        const rawExamData = [
+            { year: 2011, trf: "TRF1", banca: "FCC", notes: "" },
+            { year: 2014, trf: "TRF1", banca: "FCC", notes: "" },
+            { year: 2016, trf: "TRF3", banca: "FCC", notes: "Edital 2015, Prova em 03/04/2016" },
+            { year: 2017, trf: "TRF1", banca: "Cebraspe", notes: "" },
+            { year: 2017, trf: "TRF5", banca: "FCC", notes: "" },
+            { year: 2019, trf: "TRF3", banca: "FCC", notes: "" },
+            { year: 2019, trf: "TRF4", banca: "FCC", notes: "" },
+            { year: 2022, trf: "TRF6", banca: "FGV", notes: "" },
+            { year: 2023, trf: "TRF3", banca: "Vunesp", notes: "" },
+            { year: 2024, trf: "TRF2", banca: "Instituto AOCP", notes: "" },
+            { year: 2024, trf: "TRF3", banca: "FCC", notes: "" },
+            { year: 2024, trf: "TRF5", banca: "IBFC", notes: "Edital 2023, Provas realizadas em 2024" },
+            { year: 2025, trf: "TRF4", banca: "FCC", notes: "Previsto. Edital 2024, Provas previstas para julho de 2025" }
+        ];
+
+        const examData = rawExamData.map(exam => {
+            let finalNotes = exam.notes || "";
+            if (exam.year >= 2022) {
+                const nivelSuperiorNote = "Nível Superior exigido";
+                if (finalNotes) {
+                    if (!finalNotes.toLowerCase().includes("nível superior")) {
+                        finalNotes += `. ${nivelSuperiorNote}`;
+                    }
+                } else {
+                    finalNotes = nivelSuperiorNote;
+                }
+            }
+            return { ...exam, notes: finalNotes.trim() };
+        });
+
+        const trfFilter = document.getElementById('trf-filter');
+        const bancaFilter = document.getElementById('banca-filter');
+        const sortOrderSelect = document.getElementById('sort-order');
+        const searchInput = document.getElementById('search-input');
+        const examListDiv = document.getElementById('exam-list');
+        const resultsCountP = document.getElementById('results-count');
+        const currentYearSpan = document.getElementById('currentYear');
+        currentYearSpan.textContent = new Date().getFullYear();
+
+        let bancaChartInstance = null;
+
+        function populateFilters() {
+            const trfs = [...new Set(examData.map(item => item.trf))].sort();
+            const bancas = [...new Set(examData.map(item => item.banca))].sort();
+
+            trfs.forEach(trf => {
+                const option = document.createElement('option');
+                option.value = trf;
+                option.textContent = trf;
+                trfFilter.appendChild(option);
+            });
+
+            bancas.forEach(banca => {
+                const option = document.createElement('option');
+                option.value = banca;
+                option.textContent = banca;
+                bancaFilter.appendChild(option);
+            });
+        }
+
+        function wrapText(text, maxWidth) {
+            const words = text.split(' ');
+            let lines = [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+                if (currentLine.length + words[i].length + 1 <= maxWidth) {
+                    currentLine += ' ' + words[i];
+                } else {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+        
+        function displayExams(filteredData) {
+            examListDiv.innerHTML = '';
+            if (filteredData.length === 0) {
+                resultsCountP.textContent = 'Nenhum concurso encontrado com os filtros aplicados.';
+                examListDiv.innerHTML = '<p class="text-slate-600 col-span-full text-center">Nenhum resultado encontrado.</p>';
+                updateChart([]);
+                return;
+            }
+            
+            resultsCountP.textContent = `Exibindo ${filteredData.length} de ${examData.length} concursos.`;
+
+            filteredData.forEach(exam => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col';
+                
+                let notesHTML = '';
+                if (exam.notes) {
+                    notesHTML = `<p class="text-sm text-slate-600 mt-2"><strong class="font-medium text-slate-700">Obs:</strong> ${exam.notes}</p>`;
+                }
+                if (exam.year >= 2022 && !exam.notes.toLowerCase().includes("nível superior")) {
+                     notesHTML += `<p class="text-sm text-red-600 font-semibold mt-1">Nível Superior exigido</p>`;
+                } else if (exam.year >= 2022) {
+                    // Ensure "Nível Superior exigido" is prominent if already in notes
+                    notesHTML = notesHTML.replace(/(Nível Superior exigido)/gi, '<strong class="text-red-600 font-semibold">$1</strong>');
+                }
+
+
+                card.innerHTML = `
+                    <div class="card-content flex-grow">
+                        <h3 class="text-xl font-semibold text-sky-700 mb-2">${exam.trf} - ${exam.year}</h3>
+                        <p class="text-slate-700"><strong class="font-medium">Banca:</strong> ${exam.banca}</p>
+                        ${notesHTML}
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <span class="text-xs text-slate-500">Concurso para Técnico Judiciário</span>
+                    </div>
+                `;
+                examListDiv.appendChild(card);
+            });
+            updateChart(filteredData);
+        }
+        
+        function filterAndSortData() {
+            let filtered = [...examData];
+            const selectedTrf = trfFilter.value;
+            const selectedBanca = bancaFilter.value;
+            const searchTerm = searchInput.value.toLowerCase();
+            const sortOrder = sortOrderSelect.value;
+
+            if (selectedTrf) {
+                filtered = filtered.filter(item => item.trf === selectedTrf);
+            }
+            if (selectedBanca) {
+                filtered = filtered.filter(item => item.banca === selectedBanca);
+            }
+            if (searchTerm) {
+                filtered = filtered.filter(item => 
+                    item.year.toString().includes(searchTerm) ||
+                    item.trf.toLowerCase().includes(searchTerm) ||
+                    item.banca.toLowerCase().includes(searchTerm) ||
+                    (item.notes && item.notes.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            if (sortOrder === 'asc') {
+                filtered.sort((a, b) => a.year - b.year);
+            } else {
+                filtered.sort((a, b) => b.year - a.year);
+            }
+            displayExams(filtered);
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('bancaChart').getContext('2d');
+            const bancaCounts = {};
+            data.forEach(exam => {
+                bancaCounts[exam.banca] = (bancaCounts[exam.banca] || 0) + 1;
+            });
+
+            const labels = Object.keys(bancaCounts);
+            const counts = Object.values(bancaCounts);
+            
+            const backgroundColors = [
+                'rgba(56, 189, 248, 0.6)', // sky-400
+                'rgba(14, 165, 233, 0.6)', // sky-500
+                'rgba(2, 132, 199, 0.6)',  // sky-600
+                'rgba(3, 105, 161, 0.6)',  // sky-700
+                'rgba(125, 211, 252, 0.6)', // sky-300
+                'rgba(186, 230, 253, 0.6)'  // sky-200
+            ];
+            const borderColors = [
+                'rgba(56, 189, 248, 1)',
+                'rgba(14, 165, 233, 1)',
+                'rgba(2, 132, 199, 1)',
+                'rgba(3, 105, 161, 1)',
+                'rgba(125, 211, 252, 1)',
+                'rgba(186, 230, 253, 1)'
+            ];
+
+            if (bancaChartInstance) {
+                bancaChartInstance.destroy();
+            }
+
+            if (data.length === 0 && !bancaChartInstance) {
+                 // If no data and no chart, don't try to create an empty one.
+                 // The message "Nenhum concurso encontrado" handles this.
+                 return;
+            }
+            
+            bancaChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(label => wrapText(label, 16)), // Wrap labels
+                    datasets: [{
+                        label: 'Número de Concursos por Banca',
+                        data: counts,
+                        backgroundColor: labels.map((_, i) => backgroundColors[i % backgroundColors.length]),
+                        borderColor: labels.map((_, i) => borderColors[i % borderColors.length]),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#475569', // slate-600
+                                stepSize: 1 // Ensure integer ticks for counts
+                            },
+                            grid: {
+                                color: '#e2e8f0' // slate-200
+                            }
+                        },
+                        x: {
+                           ticks: {
+                                color: '#475569', // slate-600
+                                callback: function(value, index, values) {
+                                    // 'this.getLabelForValue(value)' gets the actual label string
+                                    const label = this.getLabelForValue(value);
+                                    if (typeof label === 'string') return wrapText(label, 10); // Wrap if it's a single string
+                                    return label; // If already an array (from pre-wrapping), return as is
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#334155' // slate-700
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a', // slate-900
+                            titleColor: '#f8fafc', // slate-50
+                            bodyColor: '#e2e8f0', // slate-200
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    // Get full label for tooltip title
+                                    return labels[tooltipItems[0].dataIndex];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        trfFilter.addEventListener('change', filterAndSortData);
+        bancaFilter.addEventListener('change', filterAndSortData);
+        sortOrderSelect.addEventListener('change', filterAndSortData);
+        searchInput.addEventListener('input', filterAndSortData);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateFilters();
+            filterAndSortData();
+        });
+    </script>
+</body>
+</html>
