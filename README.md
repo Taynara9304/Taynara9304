@@ -65,9 +65,4 @@ Desenvolvido em parceria com o [Lucas](https://github.com/caslugms).
 
 ---
 
-<p align="center">
-  <img height="150em" src="https://github-readme-stats.vercel.app/api?username=Taynara9304&show_icons=true&theme=default&count_private=true"/>
-  <img height="150em" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Taynara9304&layout=compact"/>
-</p>
-
 Nota: A estilização desse README.md foi feita com IA.
